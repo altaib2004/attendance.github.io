@@ -266,7 +266,16 @@
             } catch(e) {
                 console.error("Storage error:", e);
             }
-
+// Auto-reset check-ins on a new calendar day
+            var todayStr = new Date().toDateString();
+            var lastActiveDate = localStorage.getItem("GS_LAST_ACTIVE_DATE");
+            if (lastActiveDate !== todayStr) {
+                members.forEach(function(m) {
+                    m.checkedIn = false;
+                });
+                localStorage.setItem("GS_LAST_ACTIVE_DATE", todayStr);
+                saveData();
+            }
             function saveData() {
                 try {
                     localStorage.setItem("GS_EVENT_MEMBERS", JSON.stringify(members));
