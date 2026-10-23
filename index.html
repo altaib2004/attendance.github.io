@@ -7,6 +7,8 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+    <!-- Supabase Client Library -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body class="bg-slate-950 text-slate-100 font-sans min-h-screen select-none">
 
@@ -45,7 +47,7 @@
                     <div>
                         <h1 class="font-bold text-base leading-tight text-white">Event Entry & Credits</h1>
                         <p class="text-xs text-slate-400 flex items-center gap-1">
-                            <i class="fa-solid fa-lock text-emerald-400"></i> Secured Portal (£ GBP)
+                            <i class="fa-solid fa-cloud text-emerald-400"></i> Cloud Sync (£ GBP)
                         </p>
                     </div>
                 </div>
@@ -259,39 +261,54 @@
             var html5QrcodeScanner = null;
             var flashEnabled = false;
 
-            var members = [
-                { id: "S1001", name: "Alex Turner", barcode: "987654321", tier: "Full membership", balance: 12.50, checkedIn: false, ledger: [{ ts: new Date().toLocaleString(), desc: "Initial Setup", change: 12.50 }] },
-                { id: "S1002", name: "Sarah Jenkins", barcode: "123456789", tier: "Competitive", balance: 5.00, checkedIn: false, ledger: [{ ts: new Date().toLocaleString(), desc: "Initial Setup", change: 5.00 }] }
-            ];
+            // Initialize Supabase Client with User Credentials
+            var SUPABASE_URL = "https://iuwilpjjvagwaygrzcxu.supabase.co";
+            var SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml1d2lscGpqdmFnd2F5Z3J6Y3h1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI3NjkwNDAsImV4cCI6MjEwODM0NTA0MH0.yPOKwzBJJsPFqj889LNIIm6DBdp5iNOwfybYkGdRjxw";
+            var supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+            var members = [];
             var logs = [];
 
-            // Load Data & Settings Safely
-            try {
-                var sm = localStorage.getItem("GS_EVENT_MEMBERS");
-                var sl = localStorage.getItem("GS_EVENT_LOGS");
-                if (sm) members = JSON.parse(sm);
-                if (sl) logs = JSON.parse(sl);
-            } catch(e) {
-                console.error("Storage error:", e);
+            // Load from Supabase Database
+            async function loadFromCloud() {
+                var { data, error } = await supabaseClient.from('members').select('*');
+                if (!error && data && data.length > 0) {
+                    members = data.map(function(m) {
+                        return {
+                            id: m.id,
+                            name: m.name,
+                            barcode: m.barcode,
+                            tier: m.tier || "Standard",
+                            balance: parseFloat(m.balance) || 0,
+                            checkedIn: m.checked_in || false,
+                            ledger: m.ledger || []
+                        };
+                    });
+                } else {
+                    // Fallback default sample members if database is empty
+                    members = [
+                        { id: "S1001", name: "Alex Turner", barcode: "987654321", tier: "Full membership", balance: 12.50, checkedIn: false, ledger: [{ ts: new Date().toLocaleString(), desc: "Initial Setup", change: 12.50 }] },
+                        { id: "S1002", name: "Sarah Jenkins", barcode: "123456789", tier: "Competitive", balance: 5.00, checkedIn: false, ledger: [{ ts: new Date().toLocaleString(), desc: "Initial Setup", change: 5.00 }] }
+                    ];
+                    members.forEach(function(m) { syncMemberToCloud(m); });
+                }
+                renderDirectory();
             }
 
-            // Daily Check-In Reset
-            try {
-                var todayStr = new Date().toDateString();
-                var lastActiveDate = localStorage.getItem("GS_LAST_ACTIVE_DATE");
-                if (lastActiveDate !== todayStr) {
-                    members.forEach(function(m) { m.checkedIn = false; });
-                    localStorage.setItem("GS_LAST_ACTIVE_DATE", todayStr);
-                    saveData();
-                }
-            } catch(e) {}
+            async function syncMemberToCloud(student) {
+                await supabaseClient.from('members').upsert({
+                    id: student.id,
+                    name: student.name,
+                    barcode: student.barcode,
+                    tier: student.tier,
+                    balance: student.balance,
+                    checked_in: student.checkedIn,
+                    ledger: student.ledger
+                });
+            }
 
-            function saveData() {
-                try {
-                    localStorage.setItem("GS_EVENT_MEMBERS", JSON.stringify(members));
-                    localStorage.setItem("GS_EVENT_LOGS", JSON.stringify(logs));
-                } catch(e) {}
+            async function removeMemberFromCloud(id) {
+                await supabaseClient.from('members').delete().eq('id', id);
             }
 
             function addLogEntry(name, action, details) {
@@ -359,7 +376,7 @@
             document.getElementById('tab-import').addEventListener('click', function() { switchTab('import'); });
             document.getElementById('tab-logs').addEventListener('click', function() { switchTab('logs'); });
 
-            // CAMERA SCANNER ENGINE & FLASH TOGGLE
+            // CAMERA SCANNER & FLASH
             document.getElementById('camToggleBtn').addEventListener('click', function() {
                 if (html5QrcodeScanner) { stopCamera(); } else { startCamera(); }
             });
@@ -373,7 +390,7 @@
                 html5QrcodeScanner = new Html5Qrcode("reader");
                 html5QrcodeScanner.start(
                     { facingMode: "environment" },
-                    { fps: 10, qrbox: { width: 250, height: 56 } },
+                    { fps: 10, qrbox: { width: 250, height: 150 } },
                     function(decodedText) { processSearchCode(decodedText); },
                     function(error) {}
                 ).then(function() {
@@ -445,7 +462,7 @@
                 }
             }
 
-            // POPUP MODAL CONTROLS
+            // POPUP MODAL
             function showMemberPopup(student) {
                 document.getElementById('memberName').textContent = student.name;
                 document.getElementById('memberTierBadge').textContent = student.tier || "Standard";
@@ -468,14 +485,10 @@
                 document.getElementById('memberPopupModal').classList.add('hidden');
             });
 
-            // Tap outside popup box to close
             document.getElementById('memberPopupModal').addEventListener('click', function(e) {
-                if (e.target === this) {
-                    this.classList.add('hidden');
-                }
+                if (e.target === this) { this.classList.add('hidden'); }
             });
 
-            // CHANGE TIER HELPER FUNCTION
             function changeMemberTier(student) {
                 var newTier = prompt("Select new membership tier for " + student.name + "\n(Standard, Full membership, Competitive, Casual, Associate, Committee):", student.tier || "Standard");
                 if (newTier !== null) {
@@ -485,12 +498,12 @@
                     if (matched) {
                         var oldTier = student.tier || "Standard";
                         student.tier = matched;
+                        syncMemberToCloud(student);
                         addLogEntry(student.name, "Tier Updated", "Changed from " + oldTier + " to " + matched);
-                        saveData();
                         renderDirectory();
                         showMemberPopup(student);
                     } else {
-                        alert("Invalid tier entered. Please use one of the standard classifications.");
+                        alert("Invalid tier entered.");
                     }
                 }
             }
@@ -515,8 +528,8 @@
                     change: amount
                 });
 
+                syncMemberToCloud(student);
                 addLogEntry(student.name, "Balance Change", desc + " | New Balance: £" + student.balance.toFixed(2));
-                saveData();
                 showMemberPopup(student);
                 renderDirectory();
             }
@@ -535,8 +548,8 @@
                 student.checkedIn = !student.checkedIn;
                 var actionStr = student.checkedIn ? "Checked In" : "Checked Out";
 
+                syncMemberToCloud(student);
                 addLogEntry(student.name, actionStr, "Current Balance: £" + student.balance.toFixed(2));
-                saveData();
                 showMemberPopup(student);
                 renderDirectory();
             });
@@ -600,8 +613,8 @@
                             var newBarcode = prompt("Enter or scan student barcode ID for " + student.name + ":", student.barcode || "");
                             if (newBarcode !== null) {
                                 student.barcode = newBarcode.trim() || null;
+                                syncMemberToCloud(student);
                                 addLogEntry(student.name, "ID Updated", "New Barcode: " + (student.barcode || 'Unlinked'));
-                                saveData();
                                 renderDirectory();
                             }
                         }
@@ -614,8 +627,8 @@
                         var student = members.find(function(m) { return m.id === id; });
                         if (student && confirm("Are you sure you want to delete " + student.name + "?")) {
                             members = members.filter(function(m) { return m.id !== id; });
+                            removeMemberFromCloud(id);
                             addLogEntry("System", "Member Deleted", "Removed " + student.name);
-                            saveData();
                             renderDirectory();
                         }
                     });
@@ -633,7 +646,7 @@
 
                 if (!name) { alert("Please enter a name."); return; }
 
-                members.push({
+                var newStudent = {
                     id: "S" + Math.floor(1000 + Math.random() * 9000),
                     name: name,
                     barcode: barcode || null,
@@ -641,10 +654,11 @@
                     balance: balance,
                     checkedIn: false,
                     ledger: [{ ts: new Date().toLocaleString(), desc: "Registration (" + tier + ")", change: balance }]
-                });
+                };
 
+                members.push(newStudent);
+                syncMemberToCloud(newStudent);
                 addLogEntry(name, "Member Registered", "Tier: " + tier + " | Initial Balance: £" + balance.toFixed(2));
-                saveData();
                 renderDirectory();
 
                 document.getElementById('regName').value = "";
@@ -673,7 +687,7 @@
                             var balance = parseFloat(parts[2]) || 0;
 
                             if (name) {
-                                members.push({
+                                var importedStudent = {
                                     id: "S" + Math.floor(1000 + Math.random() * 9000),
                                     name: name,
                                     barcode: null,
@@ -681,14 +695,15 @@
                                     balance: balance,
                                     checkedIn: false,
                                     ledger: [{ ts: new Date().toLocaleString(), desc: "CSV Import", change: balance }]
-                                });
+                                };
+                                members.push(importedStudent);
+                                syncMemberToCloud(importedStudent);
                                 count++;
                             }
                         }
                     });
 
                     addLogEntry("System", "CSV Import", "Imported " + count + " member profiles.");
-                    saveData();
                     renderDirectory();
                     var summary = document.getElementById('importSummary');
                     summary.classList.remove('hidden');
@@ -773,7 +788,8 @@
                 document.body.removeChild(link);
             });
 
-            renderDirectory();
+            // Initialize app data from cloud on startup
+            loadFromCloud();
             renderLogs();
         });
     </script>
