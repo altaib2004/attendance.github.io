@@ -262,7 +262,7 @@
             var flashEnabled = false;
 
             // Initialize Supabase Client with User Credentials
-            var SUPABASE_URL = "https://iuwilpjjvagwaygrzcxu.supabase.co/rest/v1/members";
+            var SUPABASE_URL = "https://iuwilpjjvagwaygrzcxu.supabase.co";
             var SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml1d2lscGpqdmFnd2F5Z3J6Y3h1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI3NjkwNDAsImV4cCI6MjEwODM0NTA0MH0.yPOKwzBJJsPFqj889LNIIm6DBdp5iNOwfybYkGdRjxw";
             var supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -304,7 +304,7 @@
             }
 
             async function syncMemberToCloud(student) {
-                await supabaseClient.from('members').upsert({
+                var { error } = await supabaseClient.from('members').upsert({
                     id: student.id,
                     name: student.name,
                     barcode: student.barcode,
@@ -313,10 +313,18 @@
                     checked_in: student.checkedIn,
                     ledger: student.ledger
                 });
+                
+                if (error) {
+                    console.error("Supabase Sync Error:", error.message);
+                    alert("Cloud sync failed: " + error.message);
+                }
             }
 
             async function removeMemberFromCloud(id) {
-                await supabaseClient.from('members').delete().eq('id', id);
+                var { error } = await supabaseClient.from('members').delete().eq('id', id);
+                if (error) {
+                    console.error("Supabase Delete Error:", error.message);
+                }
             }
 
             // Realtime WebSocket subscription for multi-user sync
