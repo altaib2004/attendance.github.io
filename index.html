@@ -47,7 +47,7 @@
                     <div>
                         <h1 class="font-bold text-base leading-tight text-white">Event Entry & Credits</h1>
                         <p class="text-xs text-slate-400 flex items-center gap-1">
-                            <i class="fa-solid fa-cloud text-emerald-400"></i> Cloud Sync (£ GBP)
+                            <i class="fa-solid fa-cloud text-emerald-400"></i> Live Supabase Realtime Sync (£ GBP)
                         </p>
                     </div>
                 </div>
@@ -284,7 +284,7 @@
                             ledger: m.ledger || []
                         };
                     });
-                } else {
+                } else if (!error && (!data || data.length === 0)) {
                     // Fallback default sample members if database is empty
                     members = [
                         { id: "S1001", name: "Alex Turner", barcode: "987654321", tier: "Full membership", balance: 12.50, checkedIn: false, ledger: [{ ts: new Date().toLocaleString(), desc: "Initial Setup", change: 12.50 }] },
@@ -293,6 +293,14 @@
                     members.forEach(function(m) { syncMemberToCloud(m); });
                 }
                 renderDirectory();
+                
+                // If popup modal is currently open, live-update its values too
+                if (activeMemberId) {
+                    var currentStudent = members.find(function(m) { return m.id === activeMemberId; });
+                    if (currentStudent) {
+                        showMemberPopup(currentStudent);
+                    }
+                }
             }
 
             async function syncMemberToCloud(student) {
@@ -309,6 +317,16 @@
 
             async function removeMemberFromCloud(id) {
                 await supabaseClient.from('members').delete().eq('id', id);
+            }
+
+            // Realtime WebSocket subscription for multi-user sync
+            function subscribeToRealtimeChanges() {
+                supabaseClient
+                    .channel('public:members')
+                    .on('postgres_changes', { event: '*', schema: 'public', table: 'members' }, function(payload) {
+                        loadFromCloud();
+                    })
+                    .subscribe();
             }
 
             function addLogEntry(name, action, details) {
@@ -788,8 +806,9 @@
                 document.body.removeChild(link);
             });
 
-            // Initialize app data from cloud on startup
+            // Initialize app data from cloud and start real-time listener on startup
             loadFromCloud();
+            subscribeToRealtimeChanges();
             renderLogs();
         });
     </script>
