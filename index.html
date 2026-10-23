@@ -89,4 +89,569 @@
                     </div>
 
                     <!-- Video Viewport -->
-                    <div id="reader-container" class="
+                    <div id="reader-container" class="relative overflow-hidden rounded-xl bg-slate-950 border-2 border-dashed border-slate-800 min-h-[190px] flex items-center justify-center">
+                        <div id="reader" class="w-full"></div>
+                        <div id="cameraPlaceholder" class="text-center p-6 text-slate-500">
+                            <i class="fa-solid fa-barcode text-4xl mb-2 opacity-40"></i>
+                            <p class="text-xs">Tap "Start Camera" for real-time live scanning</p>
+                        </div>
+                    </div>
+
+                    <div class="flex gap-2 pt-1">
+                        <input type="text" id="manualBarcodeInput" placeholder="Or type Barcode ID manually..." class="bg-slate-950 border border-slate-800 text-white text-xs rounded-lg px-3 py-2 w-full focus:outline-none focus:border-indigo-500">
+                        <button id="btnLookup" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs px-4 rounded-lg font-bold cursor-pointer">Lookup</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ==================== TAB 2: MEMBERS DIRECTORY ==================== -->
+            <section id="view-directory" class="hidden space-y-4">
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl space-y-3">
+                    <div class="flex justify-between items-center">
+                        <h2 class="text-sm font-bold text-white flex items-center gap-2">
+                            <i class="fa-solid fa-address-book text-indigo-400"></i> Member Roster
+                        </h2>
+                        <span id="totalMemberCount" class="text-xs px-2 py-0.5 rounded-full bg-slate-800 text-slate-300">0 Total</span>
+                    </div>
+                    
+                    <input type="text" id="directorySearch" placeholder="Search name or ID..." class="w-full bg-slate-950 border border-slate-800 text-xs text-white rounded-lg px-3 py-2 focus:outline-none focus:border-indigo-500">
+
+                    <!-- Manual Member Registration -->
+                    <div class="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-2">
+                        <p class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Manual Member Registration</p>
+                        <div class="space-y-2">
+                            <input type="text" id="regName" placeholder="Full Name (e.g. Alex Turner)" class="w-full bg-slate-900 border border-slate-800 text-xs rounded-lg px-3 py-2 text-white">
+                            <input type="text" id="regBarcode" placeholder="Barcode ID (Optional)" class="w-full bg-slate-900 border border-slate-800 text-xs rounded-lg px-3 py-2 text-white">
+                            <input type="number" id="regBalance" placeholder="Initial Balance (£0.00)" step="0.50" class="w-full bg-slate-900 border border-slate-800 text-xs rounded-lg px-3 py-2 text-white">
+                            <button id="btnSaveMember" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs py-2 rounded-lg shadow cursor-pointer">
+                                <i class="fa-solid fa-user-plus"></i> Save Member Profile
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="directoryList" class="space-y-2"></div>
+            </section>
+
+            <!-- ==================== TAB 3: CSV IMPORT ==================== -->
+            <section id="view-import" class="hidden space-y-4">
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl space-y-3">
+                    <h2 class="text-sm font-bold text-white flex items-center gap-2">
+                        <i class="fa-solid fa-file-csv text-emerald-400"></i> Import CSV Roster
+                    </h2>
+                    <p class="text-xs text-slate-400">
+                        Upload a standard `.csv` file containing Name and Balance columns.
+                    </p>
+
+                    <label class="block border-2 border-dashed border-slate-800 hover:border-indigo-500 rounded-xl p-6 text-center cursor-pointer bg-slate-950 transition">
+                        <i class="fa-solid fa-cloud-arrow-up text-3xl text-indigo-400 mb-2"></i>
+                        <p class="text-xs text-slate-300 font-semibold">Click to select CSV File</p>
+                        <p class="text-[10px] text-slate-500 mt-1">Accepts .CSV files</p>
+                        <input type="file" id="inputCsvFile" accept=".csv" class="hidden">
+                    </label>
+
+                    <div id="importSummary" class="hidden p-3 bg-slate-950 rounded-xl text-xs space-y-1 border border-slate-800"></div>
+                </div>
+            </section>
+
+            <!-- ==================== TAB 4: ACTIVITY LOG ==================== -->
+            <section id="view-logs" class="hidden space-y-4">
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl space-y-3">
+                    <div class="flex justify-between items-center">
+                        <h2 class="text-sm font-bold text-white flex items-center gap-2">
+                            <i class="fa-solid fa-clock-rotate-left text-indigo-400"></i> Combined Activity Log
+                        </h2>
+                        <button id="btnExportCsv" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg shadow flex items-center gap-1.5 cursor-pointer">
+                            <i class="fa-solid fa-download"></i> Export CSV
+                        </button>
+                    </div>
+                    
+                    <div id="logsList" class="space-y-2 max-h-[400px] overflow-y-auto text-xs pr-1"></div>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <!-- ==================== QUICK-ACTION POPUP MODAL ==================== -->
+    <div id="memberPopupModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div id="memberPopupBox" class="bg-slate-900 border border-indigo-500/50 rounded-3xl p-5 w-full max-w-sm shadow-2xl space-y-4 relative">
+            
+            <!-- Top info & Status -->
+            <div class="flex justify-between items-start">
+                <div>
+                    <span id="cardStatusBadge" class="inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">Checked In</span>
+                    <h2 id="memberName" class="text-lg font-bold text-white mt-1">Student Name</h2>
+                    <p id="memberBarcode" class="text-xs text-slate-400 font-mono">ID: --</p>
+                </div>
+                <div class="text-right">
+                    <p class="text-[10px] text-slate-400 uppercase font-semibold">Balance</p>
+                    <p id="memberBalance" class="text-2xl font-extrabold text-emerald-400">£0.00</p>
+                </div>
+            </div>
+
+            <!-- Quick Credit Buttons -->
+            <div class="pt-2 border-t border-slate-800 space-y-3">
+                <div class="grid grid-cols-4 gap-1.5">
+                    <button id="btnSub5" class="py-2.5 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/30 text-xs font-bold rounded-xl cursor-pointer">-£5</button>
+                    <button id="btnSub1" class="py-2.5 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/30 text-xs font-bold rounded-xl cursor-pointer">-£1</button>
+                    <button id="btnAdd1" class="py-2.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30 text-xs font-bold rounded-xl cursor-pointer">+£1</button>
+                    <button id="btnAdd5" class="py-2.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30 text-xs font-bold rounded-xl cursor-pointer">+£5</button>
+                </div>
+                
+                <div class="flex gap-2">
+                    <button id="btnToggleAttendance" class="flex-1 py-3 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-xl shadow cursor-pointer">
+                        Toggle Attendance
+                    </button>
+                    <button id="btnOpenLedger" class="px-3.5 py-3 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-xl cursor-pointer">
+                        <i class="fa-solid fa-clock-rotate-left"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Done Button -->
+            <button id="btnClosePopup" class="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-xl cursor-pointer border border-slate-700 transition">
+                Done
+            </button>
+        </div>
+    </div>
+
+    <!-- LEDGER HISTORY MODAL -->
+    <div id="ledgerModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 w-full max-w-md space-y-3 shadow-2xl max-h-[85vh] flex flex-col">
+            <div class="flex justify-between items-center pb-2 border-b border-slate-800">
+                <div>
+                    <h3 id="ledgerModalName" class="text-sm font-bold text-white">Student Ledger</h3>
+                    <p id="ledgerModalSubtitle" class="text-[10px] text-slate-400 font-mono">ID: --</p>
+                </div>
+                <button id="btnCloseLedger" class="text-slate-400 hover:text-white cursor-pointer"><i class="fa-solid fa-xmark text-base"></i></button>
+            </div>
+            <div id="ledgerEntries" class="flex-1 overflow-y-auto space-y-2 text-xs pr-1"></div>
+        </div>
+    </div>
+
+    <!-- SCRIPT ENGINE -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            var activeMemberId = null;
+            var adminUser = "kclmt";
+            var adminPass = "bibinetenyahu";
+            var html5QrcodeScanner = null;
+
+            var members = [
+                { id: "S1001", name: "Alex Turner", barcode: "987654321", balance: 12.50, checkedIn: false, ledger: [{ ts: new Date().toLocaleString(), desc: "Initial Setup", change: 12.50 }] },
+                { id: "S1002", name: "Sarah Jenkins", barcode: "123456789", balance: 5.00, checkedIn: false, ledger: [{ ts: new Date().toLocaleString(), desc: "Initial Setup", change: 5.00 }] }
+            ];
+
+            var logs = [];
+
+            // Load Data & Settings
+            try {
+                var sm = localStorage.getItem("GS_EVENT_MEMBERS");
+                var sl = localStorage.getItem("GS_EVENT_LOGS");
+                if (sm) members = JSON.parse(sm);
+                if (sl) logs = JSON.parse(sl);
+            } catch(e) {
+                console.error("Storage error:", e);
+            }
+
+            // Daily Check-In Reset
+            var todayStr = new Date().toDateString();
+            var lastActiveDate = localStorage.getItem("GS_LAST_ACTIVE_DATE");
+            if (lastActiveDate !== todayStr) {
+                members.forEach(function(m) {
+                    m.checkedIn = false;
+                });
+                localStorage.setItem("GS_LAST_ACTIVE_DATE", todayStr);
+                saveData();
+            }
+
+            function saveData() {
+                try {
+                    localStorage.setItem("GS_EVENT_MEMBERS", JSON.stringify(members));
+                    localStorage.setItem("GS_EVENT_LOGS", JSON.stringify(logs));
+                } catch(e) {}
+            }
+
+            function addLogEntry(name, action, details) {
+                logs.unshift({
+                    ts: new Date().toLocaleString(),
+                    name: name,
+                    action: action,
+                    details: details || ""
+                });
+                renderLogs();
+            }
+
+            // ADMIN LOGIN HANDLERS
+            document.getElementById('btnLogin').addEventListener('click', attemptLogin);
+            document.getElementById('loginPasswordInput').addEventListener('keyup', function(e) {
+                if (e.key === 'Enter') attemptLogin();
+            });
+
+            function attemptLogin() {
+                var u = document.getElementById('loginUsernameInput').value.trim();
+                var p = document.getElementById('loginPasswordInput').value;
+
+                if (u === adminUser && p === adminPass) {
+                    document.getElementById('loginOverlay').classList.add('hidden');
+                    document.getElementById('appDashboard').classList.remove('hidden');
+                    document.getElementById('loginErrorMsg').classList.add('hidden');
+                    document.getElementById('loginUsernameInput').value = "";
+                    document.getElementById('loginPasswordInput').value = "";
+                } else {
+                    document.getElementById('loginErrorMsg').classList.remove('hidden');
+                }
+            }
+
+            document.getElementById('btnLogout').addEventListener('click', function() {
+                if (html5QrcodeScanner) stopCamera();
+                document.getElementById('appDashboard').classList.add('hidden');
+                document.getElementById('loginOverlay').classList.remove('hidden');
+            });
+
+            // TAB SWITCHING
+            function switchTab(tab) {
+                ['scan', 'directory', 'import', 'logs'].forEach(function(t) {
+                    document.getElementById('view-' + t).classList.add('hidden');
+                    document.getElementById('tab-' + t).className = "py-2.5 rounded-lg transition text-slate-400 hover:text-white flex flex-col items-center gap-1 cursor-pointer";
+                });
+                document.getElementById('view-' + tab).classList.remove('hidden');
+                document.getElementById('tab-' + tab).className = "py-2.5 rounded-lg transition text-indigo-400 bg-slate-800 font-bold flex flex-col items-center gap-1 cursor-pointer";
+            }
+
+            document.getElementById('tab-scan').addEventListener('click', function() { switchTab('scan'); });
+            document.getElementById('tab-directory').addEventListener('click', function() { switchTab('directory'); });
+            document.getElementById('tab-import').addEventListener('click', function() { switchTab('import'); });
+            document.getElementById('tab-logs').addEventListener('click', function() { switchTab('logs'); });
+
+            // CAMERA SCANNER ENGINE
+            document.getElementById('camToggleBtn').addEventListener('click', function() {
+                if (html5QrcodeScanner) { stopCamera(); } else { startCamera(); }
+            });
+
+            function startCamera() {
+                document.getElementById('cameraPlaceholder').classList.add('hidden');
+                html5QrcodeScanner = new Html5Qrcode("reader");
+                html5QrcodeScanner.start(
+                    { facingMode: "environment" },
+                    { fps: 10, qrbox: { width: 250, height: 150 } },
+                    function(decodedText) { processSearchCode(decodedText); },
+                    function(error) {}
+                ).catch(function(err) {
+                    alert("Camera access failed. Ensure camera permission is allowed.");
+                    stopCamera();
+                });
+                document.getElementById('camToggleBtn').textContent = "Stop Camera";
+                document.getElementById('camToggleBtn').className = "text-xs px-3 py-1 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-medium cursor-pointer transition";
+            }
+
+            function stopCamera() {
+                if (html5QrcodeScanner) {
+                    html5QrcodeScanner.stop().then(function() {
+                        html5QrcodeScanner.clear();
+                        html5QrcodeScanner = null;
+                        document.getElementById('cameraPlaceholder').classList.remove('hidden');
+                        document.getElementById('camToggleBtn').textContent = "Start Camera";
+                        document.getElementById('camToggleBtn').className = "text-xs px-3 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-medium cursor-pointer transition";
+                    }).catch(function(err) {});
+                }
+            }
+
+            // MANUAL LOOKUP
+            document.getElementById('btnLookup').addEventListener('click', function() {
+                var val = document.getElementById('manualBarcodeInput').value.trim();
+                if (val) processSearchCode(val);
+            });
+
+            function processSearchCode(code) {
+                var student = members.find(function(m) { return m.barcode === code || m.id === code; });
+                if (student) {
+                    activeMemberId = student.id;
+                    showMemberPopup(student);
+                    document.getElementById('manualBarcodeInput').value = "";
+                } else {
+                    alert("No student found with ID/Barcode: " + code);
+                }
+            }
+
+            // POPUP MODAL CONTROLS
+            function showMemberPopup(student) {
+                document.getElementById('memberName').textContent = student.name;
+                document.getElementById('memberBarcode').textContent = "ID / Barcode: " + (student.barcode || 'Unlinked');
+                document.getElementById('memberBalance').textContent = "£" + student.balance.toFixed(2);
+                
+                var badge = document.getElementById('cardStatusBadge');
+                if (student.checkedIn) {
+                    badge.textContent = "Checked In";
+                    badge.className = "inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30";
+                } else {
+                    badge.textContent = "Not Checked In";
+                    badge.className = "inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/30";
+                }
+
+                document.getElementById('memberPopupModal').classList.remove('hidden');
+            }
+
+            document.getElementById('btnClosePopup').addEventListener('click', function() {
+                document.getElementById('memberPopupModal').classList.add('hidden');
+            });
+
+            // Tap outside popup box to close
+            document.getElementById('memberPopupModal').addEventListener('click', function(e) {
+                if (e.target === this) {
+                    this.classList.add('hidden');
+                }
+            });
+
+            // QUICK ADJUSTMENT
+            function quickAdjustCredit(amount) {
+                if (!activeMemberId) return;
+                var student = members.find(function(m) { return m.id === activeMemberId; });
+                if (!student) return;
+
+                student.balance += amount;
+                var desc = amount > 0 ? "Credit Added (+£" + amount.toFixed(2) + ")" : "Credit Deducted (-£" + Math.abs(amount).toFixed(2) + ")";
+                
+                student.ledger.unshift({
+                    ts: new Date().toLocaleString(),
+                    desc: desc,
+                    change: amount
+                });
+
+                addLogEntry(student.name, "Balance Change", desc + " | New Balance: £" + student.balance.toFixed(2));
+                saveData();
+                showMemberPopup(student);
+                renderDirectory();
+            }
+
+            document.getElementById('btnSub5').addEventListener('click', function() { quickAdjustCredit(-5.00); });
+            document.getElementById('btnSub1').addEventListener('click', function() { quickAdjustCredit(-1.00); });
+            document.getElementById('btnAdd1').addEventListener('click', function() { quickAdjustCredit(1.00); });
+            document.getElementById('btnAdd5').addEventListener('click', function() { quickAdjustCredit(5.00); });
+
+            // ATTENDANCE TOGGLE
+            document.getElementById('btnToggleAttendance').addEventListener('click', function() {
+                if (!activeMemberId) return;
+                var student = members.find(function(m) { return m.id === activeMemberId; });
+                if (!student) return;
+
+                student.checkedIn = !student.checkedIn;
+                var actionStr = student.checkedIn ? "Checked In" : "Checked Out";
+
+                addLogEntry(student.name, actionStr, "Current Balance: £" + student.balance.toFixed(2));
+                saveData();
+                showMemberPopup(student);
+                renderDirectory();
+            });
+
+            // ROSTER RENDER
+            function renderDirectory() {
+                var list = document.getElementById('directoryList');
+                var search = (document.getElementById('directorySearch').value || "").toLowerCase();
+                list.innerHTML = "";
+
+                var filtered = members.filter(function(m) { 
+                    return m.name.toLowerCase().indexOf(search) !== -1 || (m.barcode && m.barcode.indexOf(search) !== -1); 
+                });
+
+                document.getElementById('totalMemberCount').textContent = members.length + " Total";
+
+                filtered.forEach(function(m) {
+                    var card = document.createElement('div');
+                    card.className = "bg-slate-900 border border-slate-800 rounded-xl p-3 flex justify-between items-center text-xs";
+                    card.innerHTML = 
+                        '<div>' +
+                            '<div class="flex items-center gap-2">' +
+                                '<span class="font-bold text-white">' + m.name + '</span>' +
+                                (!m.barcode ? '<span class="text-[9px] px-1.5 py-0.2 bg-amber-500/20 text-amber-300 rounded border border-amber-500/30">Pending Card</span>' : '') +
+                            '</div>' +
+                            '<p class="text-[10px] text-slate-400 font-mono">ID: ' + (m.barcode || 'Unlinked') + '</p>' +
+                        '</div>' +
+                        '<div class="flex items-center gap-2">' +
+                            '<span class="font-bold text-emerald-400 text-sm">£' + m.balance.toFixed(2) + '</span>' +
+                            '<button data-id="' + m.id + '" class="btn-link-card px-2 py-1 bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 rounded border border-indigo-500/30 cursor-pointer">Edit ID</button>' +
+                            '<button data-id="' + m.id + '" class="btn-select-member px-2 py-1 bg-slate-800 hover:bg-slate-700 rounded text-slate-200 cursor-pointer">Select</button>' +
+                        '</div>';
+                    list.appendChild(card);
+                });
+
+                document.querySelectorAll('.btn-select-member').forEach(function(btn) {
+                    btn.addEventListener('click', function() {
+                        var id = this.getAttribute('data-id');
+                        activeMemberId = id;
+                        var student = members.find(function(m) { return m.id === id; });
+                        if (student) { showMemberPopup(student); }
+                    });
+                });
+
+                document.querySelectorAll('.btn-link-card').forEach(function(btn) {
+                    btn.addEventListener('click', function() {
+                        var id = this.getAttribute('data-id');
+                        var student = members.find(function(m) { return m.id === id; });
+                        if (student) {
+                            var newBarcode = prompt("Enter or scan student barcode ID for " + student.name + ":", student.barcode || "");
+                            if (newBarcode !== null) {
+                                student.barcode = newBarcode.trim() || null;
+                                addLogEntry(student.name, "ID Updated", "New Barcode: " + (student.barcode || 'Unlinked'));
+                                saveData();
+                                renderDirectory();
+                            }
+                        }
+                    });
+                });
+            }
+
+            document.getElementById('directorySearch').addEventListener('input', renderDirectory);
+
+            // SAVE MANUAL MEMBER
+            document.getElementById('btnSaveMember').addEventListener('click', function() {
+                var name = document.getElementById('regName').value.trim();
+                var barcode = document.getElementById('regBarcode').value.trim();
+                var balance = parseFloat(document.getElementById('regBalance').value) || 0;
+
+                if (!name) { alert("Please enter a name."); return; }
+
+                members.push({
+                    id: "S" + Math.floor(1000 + Math.random() * 9000),
+                    name: name,
+                    barcode: barcode || null,
+                    balance: balance,
+                    checkedIn: false,
+                    ledger: [{ ts: new Date().toLocaleString(), desc: "Registration", change: balance }]
+                });
+
+                addLogEntry(name, "Member Registered", "Initial Balance: £" + balance.toFixed(2));
+                saveData();
+                renderDirectory();
+
+                document.getElementById('regName').value = "";
+                document.getElementById('regBarcode').value = "";
+                document.getElementById('regBalance').value = "";
+                alert("Member registered successfully!");
+            });
+
+            // CSV IMPORT
+            document.getElementById('inputCsvFile').addEventListener('change', function(e) {
+                var file = e.target.files[0];
+                if (!file) return;
+
+                var reader = new FileReader();
+                reader.onload = function(evt) {
+                    var text = evt.target.result;
+                    var lines = text.split('\n');
+                    var count = 0;
+
+                    lines.forEach(function(line, idx) {
+                        if (idx === 0) return;
+                        var parts = line.split(',');
+                        if (parts.length >= 1) {
+                            var name = parts[0] ? parts[0].replace(/"/g, '').trim() : '';
+                            var balance = parseFloat(parts[1]) || 0;
+
+                            if (name) {
+                                members.push({
+                                    id: "S" + Math.floor(1000 + Math.random() * 9000),
+                                    name: name,
+                                    barcode: null,
+                                    balance: balance,
+                                    checkedIn: false,
+                                    ledger: [{ ts: new Date().toLocaleString(), desc: "CSV Import", change: balance }]
+                                });
+                                count++;
+                            }
+                        }
+                    });
+
+                    addLogEntry("System", "CSV Import", "Imported " + count + " member profiles.");
+                    saveData();
+                    renderDirectory();
+                    var summary = document.getElementById('importSummary');
+                    summary.classList.remove('hidden');
+                    summary.innerHTML = '<p class="text-emerald-400 font-bold"><i class="fa-solid fa-check"></i> Imported ' + count + ' members!</p>';
+                };
+                reader.readAsText(file);
+            });
+
+            // LEDGER MODAL
+            document.getElementById('btnOpenLedger').addEventListener('click', function() {
+                if (!activeMemberId) return;
+                var student = members.find(function(m) { return m.id === activeMemberId; });
+                if (!student) return;
+
+                document.getElementById('ledgerModalName').textContent = student.name;
+                document.getElementById('ledgerModalSubtitle').textContent = "Barcode: " + (student.barcode || 'Unlinked');
+                
+                var entries = document.getElementById('ledgerEntries');
+                entries.innerHTML = "";
+
+                student.ledger.forEach(function(entry) {
+                    var item = document.createElement('div');
+                    item.className = "bg-slate-950 border border-slate-800 p-2 rounded flex justify-between items-center text-xs";
+                    item.innerHTML = 
+                        '<div>' +
+                            '<p class="font-semibold text-white">' + entry.desc + '</p>' +
+                            '<p class="text-[10px] text-slate-500">' + entry.ts + '</p>' +
+                        '</div>' +
+                        '<span class="font-bold ' + (entry.change >= 0 ? 'text-emerald-400' : 'text-rose-400') + '">' +
+                            (entry.change >= 0 ? '+' : '') + '£' + entry.change.toFixed(2) +
+                        '</span>';
+                    entries.appendChild(item);
+                });
+
+                document.getElementById('ledgerModal').classList.remove('hidden');
+            });
+
+            document.getElementById('btnCloseLedger').addEventListener('click', function() {
+                document.getElementById('ledgerModal').classList.add('hidden');
+            });
+
+            // LOGS RENDER
+            function renderLogs() {
+                var container = document.getElementById('logsList');
+                container.innerHTML = "";
+
+                logs.forEach(function(log) {
+                    var item = document.createElement('div');
+                    item.className = "bg-slate-950 border border-slate-800 p-2.5 rounded-lg flex justify-between items-center";
+                    
+                    var badgeStyle = "bg-indigo-500/20 text-indigo-300";
+                    if (log.action === "Checked In") badgeStyle = "bg-emerald-500/20 text-emerald-300";
+                    if (log.action === "Checked Out") badgeStyle = "bg-rose-500/20 text-rose-300";
+                    if (log.action === "Balance Change") badgeStyle = "bg-amber-500/20 text-amber-300";
+
+                    item.innerHTML = 
+                        '<div>' +
+                            '<p class="font-bold text-white">' + log.name + '</p>' +
+                            '<p class="text-[10px] text-slate-400">' + log.details + '</p>' +
+                            '<p class="text-[9px] text-slate-500 mt-0.5">' + log.ts + '</p>' +
+                        '</div>' +
+                        '<span class="px-2 py-0.5 rounded text-[10px] font-bold ' + badgeStyle + '">' +
+                            log.action +
+                        '</span>';
+                    container.appendChild(item);
+                });
+            }
+
+            // EXPORT CSV
+            document.getElementById('btnExportCsv').addEventListener('click', function() {
+                var csvContent = "data:text/csv;charset=utf-8,Timestamp,Member Name,Action,Details\n";
+                logs.forEach(function(l) {
+                    csvContent += '"' + l.ts + '","' + l.name + '","' + l.action + '","' + (l.details || "") + '"\n';
+                });
+
+                var encodedUri = encodeURI(csvContent);
+                var link = document.createElement("a");
+                link.setAttribute("href", encodedUri);
+                link.setAttribute("download", "Activity_Log_Export_" + new Date().toISOString().slice(0,10) + ".csv");
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            });
+
+            renderDirectory();
+            renderLogs();
+        });
+    </script>
+</body>
+</html>
