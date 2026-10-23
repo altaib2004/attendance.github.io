@@ -245,7 +245,7 @@
 
             var logs = [];
 
-            // Load Data & Settings
+            // Load Data & Settings Safely
             try {
                 var sm = localStorage.getItem("GS_EVENT_MEMBERS");
                 var sl = localStorage.getItem("GS_EVENT_LOGS");
@@ -256,15 +256,15 @@
             }
 
             // Daily Check-In Reset
-            var todayStr = new Date().toDateString();
-            var lastActiveDate = localStorage.getItem("GS_LAST_ACTIVE_DATE");
-            if (lastActiveDate !== todayStr) {
-                members.forEach(function(m) {
-                    m.checkedIn = false;
-                });
-                localStorage.setItem("GS_LAST_ACTIVE_DATE", todayStr);
-                saveData();
-            }
+            try {
+                var todayStr = new Date().toDateString();
+                var lastActiveDate = localStorage.getItem("GS_LAST_ACTIVE_DATE");
+                if (lastActiveDate !== todayStr) {
+                    members.forEach(function(m) { m.checkedIn = false; });
+                    localStorage.setItem("GS_LAST_ACTIVE_DATE", todayStr);
+                    saveData();
+                }
+            } catch(e) {}
 
             function saveData() {
                 try {
@@ -283,24 +283,37 @@
                 renderLogs();
             }
 
-            // ADMIN LOGIN HANDLERS
-            document.getElementById('btnLogin').addEventListener('click', attemptLogin);
-            document.getElementById('loginPasswordInput').addEventListener('keyup', function(e) {
-                if (e.key === 'Enter') attemptLogin();
-            });
+            // ADMIN LOGIN HANDLERS (Safely bound)
+            var btnLogin = document.getElementById('btnLogin');
+            var userInput = document.getElementById('loginUsernameInput');
+            var passInput = document.getElementById('loginPasswordInput');
+
+            if (btnLogin) btnLogin.addEventListener('click', attemptLogin);
+            if (userInput) {
+                userInput.addEventListener('keyup', function(e) {
+                    if (e.key === 'Enter') attemptLogin();
+                });
+            }
+            if (passInput) {
+                passInput.addEventListener('keyup', function(e) {
+                    if (e.key === 'Enter') attemptLogin();
+                });
+            }
 
             function attemptLogin() {
-                var u = document.getElementById('loginUsernameInput').value.trim();
-                var p = document.getElementById('loginPasswordInput').value;
+                var u = userInput ? userInput.value.trim() : "";
+                var p = passInput ? passInput.value : "";
 
                 if (u === adminUser && p === adminPass) {
                     document.getElementById('loginOverlay').classList.add('hidden');
                     document.getElementById('appDashboard').classList.remove('hidden');
-                    document.getElementById('loginErrorMsg').classList.add('hidden');
-                    document.getElementById('loginUsernameInput').value = "";
-                    document.getElementById('loginPasswordInput').value = "";
+                    var errEl = document.getElementById('loginErrorMsg');
+                    if (errEl) errEl.classList.add('hidden');
+                    if (userInput) userInput.value = "";
+                    if (passInput) passInput.value = "";
                 } else {
-                    document.getElementById('loginErrorMsg').classList.remove('hidden');
+                    var errEl = document.getElementById('loginErrorMsg');
+                    if (errEl) errEl.classList.remove('hidden');
                 }
             }
 
