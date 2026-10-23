@@ -83,9 +83,14 @@
                         <span class="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
                             <i class="fa-solid fa-camera"></i> Live Barcode Reader
                         </span>
-                        <button id="camToggleBtn" class="text-xs px-3 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-medium cursor-pointer transition">
-                            Start Camera
-                        </button>
+                        <div class="flex gap-1.5">
+                            <button id="flashToggleBtn" class="text-xs px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium cursor-pointer transition hidden" title="Toggle Flash">
+                                <i class="fa-solid fa-bolt"></i> Flash
+                            </button>
+                            <button id="camToggleBtn" class="text-xs px-3 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-medium cursor-pointer transition">
+                                Start Camera
+                            </button>
+                        </div>
                     </div>
 
                     <!-- Video Viewport -->
@@ -252,6 +257,7 @@
             var adminUser = "kclmt";
             var adminPass = "ilovebibi";
             var html5QrcodeScanner = null;
+            var flashEnabled = false;
 
             var members = [
                 { id: "S1001", name: "Alex Turner", barcode: "987654321", tier: "Full membership", balance: 12.50, checkedIn: false, ledger: [{ ts: new Date().toLocaleString(), desc: "Initial Setup", change: 12.50 }] },
@@ -353,9 +359,13 @@
             document.getElementById('tab-import').addEventListener('click', function() { switchTab('import'); });
             document.getElementById('tab-logs').addEventListener('click', function() { switchTab('logs'); });
 
-            // CAMERA SCANNER ENGINE
+            // CAMERA SCANNER ENGINE & FLASH TOGGLE
             document.getElementById('camToggleBtn').addEventListener('click', function() {
                 if (html5QrcodeScanner) { stopCamera(); } else { startCamera(); }
+            });
+
+            document.getElementById('flashToggleBtn').addEventListener('click', function() {
+                toggleFlash();
             });
 
             function startCamera() {
@@ -363,10 +373,12 @@
                 html5QrcodeScanner = new Html5Qrcode("reader");
                 html5QrcodeScanner.start(
                     { facingMode: "environment" },
-                    { fps: 10, qrbox: { width: 250, height: 150 } },
+                    { fps: 10, qrbox: { width: 250, height: 56 } },
                     function(decodedText) { processSearchCode(decodedText); },
                     function(error) {}
-                ).catch(function(err) {
+                ).then(function() {
+                    document.getElementById('flashToggleBtn').classList.remove('hidden');
+                }).catch(function(err) {
                     alert("Camera access failed. Ensure camera permission is allowed.");
                     stopCamera();
                 });
@@ -376,6 +388,11 @@
 
             function stopCamera() {
                 if (html5QrcodeScanner) {
+                    flashEnabled = false;
+                    var flashBtn = document.getElementById('flashToggleBtn');
+                    flashBtn.classList.add('hidden');
+                    flashBtn.className = "text-xs px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium cursor-pointer transition";
+
                     html5QrcodeScanner.stop().then(function() {
                         html5QrcodeScanner.clear();
                         html5QrcodeScanner = null;
@@ -383,6 +400,31 @@
                         document.getElementById('camToggleBtn').textContent = "Start Camera";
                         document.getElementById('camToggleBtn').className = "text-xs px-3 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-medium cursor-pointer transition";
                     }).catch(function(err) {});
+                }
+            }
+
+            function toggleFlash() {
+                try {
+                    var videoEl = document.querySelector('#reader video');
+                    if (videoEl && videoEl.srcObject) {
+                        var track = videoEl.srcObject.getVideoTracks()[0];
+                        if (track) {
+                            flashEnabled = !flashEnabled;
+                            track.applyConstraints({ advanced: [{ torch: flashEnabled }] }).then(function() {
+                                var btn = document.getElementById('flashToggleBtn');
+                                if (flashEnabled) {
+                                    btn.className = "text-xs px-2.5 py-1 rounded-lg bg-amber-500 text-slate-950 font-bold cursor-pointer transition";
+                                } else {
+                                    btn.className = "text-xs px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium cursor-pointer transition";
+                                }
+                            }).catch(function(e) {
+                                flashEnabled = !flashEnabled;
+                                alert("Flash/Torch is not supported on this device/browser.");
+                            });
+                        }
+                    }
+                } catch(e) {
+                    alert("Flash is unavailable right now.");
                 }
             }
 
@@ -439,7 +481,6 @@
                 if (newTier !== null) {
                     newTier = newTier.trim();
                     var validTiers = ["Standard", "Full membership", "Competitive", "Casual", "Associate", "Committee"];
-                    // Case-insensitive matching or fallback to standard
                     var matched = validTiers.find(function(t) { return t.toLowerCase() === newTier.toLowerCase(); });
                     if (matched) {
                         var oldTier = student.tier || "Standard";
