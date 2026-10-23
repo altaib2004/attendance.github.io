@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Event Attendance & Credit Manager</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Html5-Qrcode barcode & QR library -->
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 font-sans min-h-screen pb-20 select-none">
+
+    <!-- Header Bar -->
+    <header class="bg-slate-800 border-b border-slate-700 sticky top-0 z-30 shadow-md">
+        <div class="max-w-md mx-auto px-4 py-3 flex justify-between items-center">
+            <div class="flex items-center space-x-2">
+                <i class="fa-solid fa-id-card text-indigo-400 text-xl"></i>
+                <div>
+                    <h1 class="font-bold text-base leading-tight text-white">Event Entry & Credits</h1>
+                    <p class="text-xs text-slate-400 flex items-center gap-1">
+                        <i class="fa-solid fa-shield-halved text-emerald-400"></i> Admin Mode (£ GBP)
+                    </p>
+                </div>
+            </div>
+            <span id="cameraPermissionBadge" class="text-[10px] px-2 py-0.5 rounded-full bg-slate-700 text-slate-400 font-mono">
+                Cam Ready
+            </span>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="max-w-md mx-auto px-4 pt-4">
+
+        <!-- TAB NAVIGATION -->
+        <div class="grid grid-cols-4 gap-1 bg-slate-800 p-1 rounded-xl mb-4 text-xs font-medium border border-slate-700">
+            <button id="tab-scan" class="py-2.5 rounded-lg transition text-indigo-400 bg-slate-700 font-bold flex flex-col items-center gap-1 cursor-pointer">
+                <i class="fa-solid fa-qrcode text-base"></i> Scan ID
+            </button>
+            <button id="tab-directory" class="py-2.5 rounded-lg transition text-slate-400 hover:text-white flex flex-col items-center gap-1 cursor-pointer">
+                <i class="fa-solid fa-users text-base"></i> Members
+            </button>
+            <button id="tab-import" class="py-2.5 rounded-lg transition text-slate-400 hover:text-white flex flex-col items-center gap-1 cursor-pointer">
+                <i class="fa-solid fa-file-csv text-base"></i> Import
+            </button>
+            <button id="tab-logs" class="py-2.5 rounded-lg transition text-slate-400 hover:text-white flex flex-col items-center gap-1 cursor-pointer">
+                <i class="fa-solid fa-list-check text-base"></i> Activity Log
+            </button>
+        </div>
+
+        <!-- ==================== TAB 1: SCANNER & QUICK ACTION ==================== -->
+        <section id="view-scan" class="space-y-4">
+            
+            <!-- Live Camera & Lookup Card -->
+            <div class="bg-slate-800 border border-slate-700 rounded-2xl p-4 shadow-xl space-y-3">
+                <div class="flex justify-between items-center">
+                    <span class="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                        <i class="fa-solid fa-barcode"></i> Barcode & QR Reader
+                    </span>
+                    <span id="scanStatusIndicator" class="text-[10px] px-2 py-0.5 rounded-full bg-slate-700 text-slate-400 font-mono">Idle</span>
+                </div>
+
+                <!-- Live Camera Frame Viewport -->
+                <div id="liveScannerWrapper" class="relative bg-slate-950 rounded-xl overflow-hidden min-h-[220px] flex flex-col items-center justify-center border border-slate-700">
+                    <div id="interactiveReader" class="w-full"></div>
+                    
+                    <div id="scannerPlaceholder" class="p-6 text-center text-slate-400 space-y-3">
+                        <i class="fa-solid fa-camera-retro text-4xl text-slate-600"></i>
+                        <p class="text-xs text-slate-300 font-medium">Click below to start live video barcode scanning</p>
+                        <p class="text-[10px] text-slate-500">Supports standard ID 1D Barcodes (Code128, Code39, EAN/UPC) & QR Codes</p>
+                    </div>
+
+                    <!-- Sandbox/Permissions Error Box -->
+                    <div id="cameraErrorBox" class="hidden p-4 bg-rose-950/80 border border-rose-700 text-rose-200 rounded-xl text-xs space-y-2 text-center m-3">
+                        <i class="fa-solid fa-triangle-exclamation text-xl text-rose-400"></i>
+                        <p id="cameraErrorMessage" class="font-semibold">Camera access denied or restricted by browser embed context.</p>
+                        <p class="text-[10px] text-rose-300">If running inside Google Sites editor preview, please publish or view the site in a standalone tab with HTTPS enabled.</p>
+                    </div>
+                </div>
+
+                <!-- Camera Selection & Controls -->
+                <div class="space-y-2">
+                    <div class="flex gap-2">
+                        <button id="btnStartCamera" class="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white text-xs py-2.5 rounded-xl font-bold flex items-center justify-center gap-2 cursor-pointer shadow transition">
+                            <i class="fa-solid fa-video"></i> Start Live Cam
+                        </button>
+                        <button id="btnStopCamera" class="flex-1 bg-rose-600 hover:bg-rose-500 text-white text-xs py-2.5 rounded-xl font-bold flex items-center justify-center gap-2 cursor-pointer shadow transition hidden">
+                            <i class="fa-solid fa-video-slash"></i> Stop Cam
+                        </button>
+                    </div>
+
+                    <!-- Camera Dropdown selector (populated dynamically) -->
+                    <select id="cameraSelect" class="hidden w-full bg-slate-900 border border-slate-700 text-xs text-slate-300 rounded-lg px-2.5 py-2 focus:outline-none">
+                        <option value="">Select Camera Device...</option>
+                    </select>
+
+                    <!-- File Upload Barcode Decoder -->
+                    <div class="pt-1">
+                        <label class="w-full bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs py-2.5 rounded-xl font-bold flex items-center justify-center gap-2 cursor-pointer shadow transition border border-slate-600">
+                            <i class="fa-solid fa-file-image text-indigo-400"></i> Upload & Decode Photo ID
+                            <input type="file" id="inputImageScan" accept="image/*" class="hidden">
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Manual Input Fallback -->
+                <div class="pt-2 border-t border-slate-700/80 flex gap-2">
+                    <input type="text" id="manualBarcodeInput" placeholder="Or type Barcode ID manually..." class="bg-slate-900 border border-slate-700 text-white text-xs rounded-lg px-3 py-2 w-full focus:outline-none focus:border-indigo-500 font-mono">
+                    <button id="btnLookup" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs px-4 rounded-lg font-bold cursor-pointer transition">Lookup</button>
+                </div>
+            </div>
+
+            <!-- Scanned Member Result Card -->
+            <div id="memberResultCard" class="hidden bg-slate-800 border border-indigo-500/50 rounded-2xl p-4 shadow-xl relative overflow-hidden">
+                <div class="flex justify-between items-start mb-2">
+                    <div>
+                        <span id="cardStatusBadge" class="inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">Checked In</span>
+                        <h2 id="memberName" class="text-lg font-bold text-white mt-1">--</h2>
+                        <p id="memberBarcode" class="text-xs text-slate-400 font-mono">ID: --</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-[10px] text-slate-400 uppercase font-semibold">Credit Balance</p>
+                        <p id="memberBalance" class="text-2xl font-extrabold text-emerald-400">£0.00</p>
+                    </div>
+                </div>
+
+                <!-- Quick Balance Adjustments & Check-In Controls -->
+                <div class="pt-3 border-t border-slate-700/80 mt-3 space-y-2">
+                    <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Quick Credit Balance Adjust</p>
+                    <div class="grid grid-cols-4 gap-1.5">
+                        <button id="btnSub5" class="py-2 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/30 text-xs font-bold rounded-lg cursor-pointer transition">-£5.00</button>
+                        <button id="btnSub1" class="py-2 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/30 text-xs font-bold rounded-lg cursor-pointer transition">-£1.00</button>
+                        <button id="btnAdd1" class="py-2 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30 text-xs font-bold rounded-lg cursor-pointer transition">+£1.00</button>
+                        <button id="btnAdd5" class="py-2 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30 text-xs font-bold rounded-lg cursor-pointer transition">+£5.00</button>
+                    </div>
+                    
+                    <div class="flex gap-2 pt-1">
+                        <button id="btnToggleAttendance" class="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-xl shadow cursor-pointer transition flex items-center justify-center gap-2">
+                            <i class="fa-solid fa-clipboard-user"></i> Toggle Check-In Status
+                        </button>
+                        <button id="btnOpenLedger" class="px-3 py-2.5 bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs font-semibold rounded-xl cursor-pointer transition">
+                            <i class="fa-solid fa-clock-rotate-left"></i> Ledger
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+        </section>
+
+        <!-- ==================== TAB 2: MEMBERS DIRECTORY ==================== -->
+        <section id="view-directory" class="hidden space-y-4">
+            
+            <div class="bg-slate-800 border border-slate-700 rounded-2xl p-4 shadow-xl space-y-3">
+                <div class="flex justify-between items-center">
+                    <h2 class="text-sm font-bold text-white flex items-center gap-2">
+                        <i class="fa-solid fa-address-book text-indigo-400"></i> Member Roster
+                    </h2>
+                    <span id="totalMemberCount" class="text-xs px-2 py-0.5 rounded-full bg-slate-700 text-slate-300 font-mono">0 Total</span>
+                </div>
+                
+                <input type="text" id="directorySearch" placeholder="Search member name or barcode ID..." class="w-full bg-slate-900 border border-slate-700 text-xs text-white rounded-lg px-3 py-2 focus:outline-none focus:border-indigo-500">
+
+                <!-- MANUAL MEMBER REGISTRATION -->
+                <div class="p-3 bg-slate-900/80 rounded-xl border border-slate-700 space-y-2">
+                    <p class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Register New Member</p>
+                    <div class="space-y-2">
+                        <input type="text" id="regName" placeholder="Full Name (e.g. Alex Turner)" class="w-full bg-slate-800 border border-slate-700 text-xs rounded-lg px-3 py-2 text-white focus:outline-none">
+                        
+                        <div class="flex gap-2">
+                            <input type="text" id="regBarcode" placeholder="Barcode ID (e.g. 987654321)" class="flex-1 bg-slate-800 border border-slate-700 text-xs rounded-lg px-3 py-2 text-white font-mono focus:outline-none">
+                            <label class="bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 border border-indigo-500/40 text-xs px-3 py-2 rounded-lg font-semibold flex items-center gap-1 cursor-pointer transition">
+                                <i class="fa-solid fa-camera"></i> Decode Photo
+                                <input type="file" id="inputRegScan" accept="image/*" class="hidden">
+                            </label>
+                        </div>
+
+                        <input type="number" id="regBalance" placeholder="Initial Balance (£0.00)" step="0.50" class="w-full bg-slate-800 border border-slate-700 text-xs rounded-lg px-3 py-2 text-white focus:outline-none">
+                        <button id="btnSaveMember" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs py-2 rounded-lg shadow cursor-pointer transition">
+                            <i class="fa-solid fa-user-plus"></i> Save Member Profile
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="directoryList" class="space-y-2 max-h-[450px] overflow-y-auto pr-1"></div>
+
+        </section>
+
+        <!-- ==================== TAB 3: CSV IMPORT ==================== -->
+        <section id="view-import" class="hidden space-y-4">
+            <div class="bg-slate-800 border border-slate-700 rounded-2xl p-4 shadow-xl space-y-3">
+                <h2 class="text-sm font-bold text-white flex items-center gap-2">
+                    <i class="fa-solid fa-file-csv text-emerald-400"></i> Import Roster CSV
+                </h2>
+                <p class="text-xs text-slate-400">
+                    Upload a standard `.csv` file containing member names and initial balances. Format: <code class="bg-slate-900 px-1 py-0.5 rounded text-indigo-300">Name, Balance, Barcode</code>
+                </p>
+
+                <label class="block border-2 border-dashed border-slate-700 hover:border-indigo-500 rounded-xl p-6 text-center cursor-pointer bg-slate-900/50 transition">
+                    <i class="fa-solid fa-cloud-arrow-up text-3xl text-indigo-400 mb-2"></i>
+                    <p class="text-xs text-slate-300 font-semibold">Click to upload CSV Roster</p>
+                    <p class="text-[10px] text-slate-500 mt-1">Accepts UTF-8 .CSV files</p>
+                    <input type="file" id="inputCsvFile" accept=".csv" class="hidden">
+                </label>
+
+                <div id="importSummary" class="hidden p-3 bg-slate-900 rounded-xl text-xs space-y-1 border border-slate-700"></div>
+            </div>
+        </section>
+
+        <!-- ==================== TAB 4: ACTIVITY LOG & REPORTS ==================== -->
+        <section id="view-logs" class="hidden space-y-4">
+            <div class="bg-slate-800 border border-slate-700 rounded-2xl p-4 shadow-xl space-y-3">
+                <div class="flex justify-between items-center">
+                    <h2 class="text-sm font-bold text-white flex items-center gap-2">
+                        <i class="fa-solid fa-clock-rotate-left text-indigo-400"></i> Activity Log
+                    </h2>
+                    <button id="btnExportCsv" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg shadow flex items-center gap-1.5 cursor-pointer transition">
+                        <i class="fa-solid fa-download"></i> Export CSV
+                    </button>
+                </div>
+                
+                <div id="logsList" class="space-y-2 max-h-[420px] overflow-y-auto text-xs pr-1"></div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- MEMBER LEDGER MODAL -->
+    <div id="ledgerModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-slate-800 border border-slate-700 rounded-2xl p-4 w-full max-w-md space-y-3 shadow-2xl max-h-[85vh] flex flex-col">
+            <div class="flex justify-between items-center pb-2 border-b border-slate-700">
+                <div>
+                    <h3 id="ledgerModalName" class="text-sm font-bold text-white">Student Ledger</h3>
+                    <p id="ledgerModalSubtitle" class="text-[10px] text-slate-400 font-mono">ID: --</p>
+                </div>
+                <button id="btnCloseLedger" class="text-slate-400 hover:text-white cursor-pointer"><i class="fa-solid fa-xmark text-base"></i></button>
+            </div>
+
+            <div id="ledgerEntries" class="flex-1 overflow-y-auto space-y-2 text-xs pr-1"></div>
+        </div>
+    </div>
+
+    <!-- SCRIPT APPLICATION ENGINE -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            var activeMemberId = null;
+            var html5QrcodeScanner = null;
+            var currentCameraId = null;
+
+            // Default Data setup
+            var members = [
+                { id: "S1001", name: "Alex Turner", barcode: "987654321", balance: 12.50, checkedIn: false, ledger: [{ ts: new Date().toLocaleString(), desc: "Initial Setup", change: 12.50 }] },
+                { id: "S1002", name: "Sarah Jenkins", barcode: "123456789", balance: 5.00, checkedIn: false, ledger: [{ ts: new Date().toLocaleString(), desc: "Initial Setup", change: 5.00 }] }
+            ];
+
+            var logs = [];
+
+            // Load saved data from LocalStorage
+            try {
+                var sm = localStorage.getItem("GS_EVENT_MEMBERS");
+                var sl = localStorage.getItem("GS_EVENT_LOGS");
+                if (sm) members = JSON.parse(sm);
+                if (sl) logs = JSON.parse(sl);
+            } catch(e) {
+                console.error("Storage error:", e);
+            }
+
+            function saveData() {
+                try {
+                    localStorage.setItem("GS_EVENT_MEMBERS", JSON.stringify(members));
+                    localStorage.setItem("GS_EVENT_LOGS", JSON.stringify(logs));
+                } catch(e) {}
+            }
+
+            function addLogEntry(name, action, details) {
+                logs.unshift({
+                    ts: new Date().toLocaleString(),
+                    name: name,
+                    action: action,
+                    details: details || ""
+                });
+                renderLogs();
+            }
+
+            // Tab Navigation Logic
+            function switchTab(tab) {
+                ['scan', 'directory', 'import', 'logs'].forEach(function(t) {
+                    document.getElementById('view-' + t).classList.add('hidden');
+                    document.getElementById('tab-' + t).className = "py-2.5 rounded-lg transition text-slate-400 hover:text-white flex flex-col items-center gap-1 cursor-pointer";
+                });
+
+                document.getElementById('view-' + tab).classList.remove('hidden');
+                document.getElementById('tab-' + tab).className = "py-2.5 rounded-lg transition text-indigo-400 bg-slate-700 font-bold flex flex-col items-center gap-1 cursor-pointer";
+
+                if (tab !== 'scan' && html5QrcodeScanner) {
+                    stopCamera();
+                }
+            }
+
+            document.getElementById('tab-scan').addEventListener('click', function() { switchTab('scan'); });
+            document.getElementById('tab-directory').addEventListener('click', function() { switchTab('directory'); });
+            document.getElementById('tab-import').addEventListener('click', function() { switchTab('import'); });
+            document.getElementById('tab-logs').addEventListener('click', function() { switchTab('logs'); });
+
+            // CAMERA DEVICE ENUMERATION & STREAM HANDLING
+            function initCameraDevices() {
+                Html5Qrcode.getCameras().then(function(cameras) {
+                    var select = document.getElementById('cameraSelect');
+                    select.innerHTML = '<option value="">Auto-Detect Rear Camera</option>';
+                    if (cameras && cameras.length > 0) {
+                        cameras.forEach(function(cam) {
+                            var opt = document.createElement('option');
+                            opt.value = cam.id;
+                            opt.textContent = cam.label || ("Camera " + (select.options.length));
+                            select.appendChild(opt);
+                        });
+                        select.classList.remove('hidden');
+                    }
+                }).catch(function(err) {
+                    console.log("Camera list error:", err);
+                });
+            }
+
+            initCameraDevices();
+
+            function startCamera() {
+                document.getElementById('cameraErrorBox').classList.add('hidden');
+                document.getElementById('scannerPlaceholder').classList.add('hidden');
+                document.getElementById('btnStartCamera').classList.add('hidden');
+                document.getElementById('btnStopCamera').classList.remove('hidden');
+                document.getElementById('scanStatusIndicator').textContent = "Scanning...";
+                document.getElementById('scanStatusIndicator').className = "text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-mono animate-pulse";
+
+                if (!html5QrcodeScanner) {
+                    html5QrcodeScanner = new Html5Qrcode("interactiveReader");
+                }
+
+                var selectedCam = document.getElementById('cameraSelect').value;
+                var cameraConfig = selectedCam ? selectedCam : { facingMode: "environment" };
+
+                var config = { 
+                    fps: 15, 
+                    qrbox: { width: 260, height: 160 },
+                    aspectRatio: 1.777778,
+                    formatsToSupport: [
+                        Html5QrcodeSupportedFormats.CODE_128,
+                        Html5QrcodeSupportedFormats.CODE_39,
+                        Html5QrcodeSupportedFormats.EAN_13,
+                        Html5QrcodeSupportedFormats.UPC_A,
+                        Html5QrcodeSupportedFormats.QR_CODE
+                    ]
+                };
+
+                html5QrcodeScanner.start(
+                    cameraConfig, 
+                    config, 
+                    function onScanSuccess(decodedText) {
+                        processSearchCode(decodedText);
+                    }, 
+                    function onScanError(errorMessage) {
+                        // Suppress frame decoding noise
+                    }
+                ).catch(function(err) {
+                    document.getElementById('cameraErrorBox').classList.remove('hidden');
+                    document.getElementById('cameraErrorMessage').textContent = "Camera Error: " + err;
+                    stopCamera();
+                });
+            }
+
+            function stopCamera() {
+                if (html5QrcodeScanner) {
+                    html5QrcodeScanner.stop().then(function() {
+                        html5QrcodeScanner.clear();
+                        resetCamUI();
+                    }).catch(function() {
+                        resetCamUI();
+                    });
+                } else {
+                    resetCamUI();
+                }
+            }
+
+            function resetCamUI() {
+                document.getElementById('scannerPlaceholder').classList.remove('hidden');
+                document.getElementById('btnStartCamera').classList.remove('hidden');
+                document.getElementById('btnStopCamera').classList.add('hidden');
+                document.getElementById('scanStatusIndicator').textContent = "Idle";
+                document.getElementById('scanStatusIndicator').className = "text-[10px] px-2 py-0.5 rounded-full bg-slate-700 text-slate-400 font-mono";
+            }
+
+            document.getElementById('btnStartCamera').addEventListener('click', startCamera);
+            document.getElementById('btnStopCamera').addEventListener('click', stopCamera);
+
+            // UPLOADED PHOTO BARCODE DECODER
+            function decodeUploadedImage(fileInput, callback) {
+                if (!fileInput.files || !fileInput.files[0]) return;
+                var file = fileInput.files[0];
+                var decoder = new Html5Qrcode("interactiveReader");
+
+                decoder.scanFile(file, true)
+                    .then(function(decodedText) {
+                        callback(decodedText);
+                    })
+                    .catch(function(err) {
+                        alert("Could not detect a clear 1D or 2D barcode in this image. Please ensure the barcode image is well-lit and not blurry.");
+                    });
+            }
+
+            document.getElementById('inputImageScan').addEventListener('change', function() {
+                decodeUploadedImage(this, function(code) {
+                    processSearchCode(code);
+                });
+            });
+
+            document.getElementById('inputRegScan').addEventListener('change', function() {
+                decodeUploadedImage(this, function(code) {
+                    document.getElementById('regBarcode').value = code;
+                    alert("Barcode decoded successfully: " + code);
+                });
+            });
+
+            // Manual & Scanned Lookup Logic
+            document.getElementById('btnLookup').addEventListener('click', function() {
+                var val = document.getElementById('manualBarcodeInput').value.trim();
+                if (val) processSearchCode(val);
+            });
+
+            function processSearchCode(code) {
+                var student = members.find(function(m) { return m.barcode === code || m.id === code; });
+                if (student) {
+                    activeMemberId = student.id;
+                    displayMemberCard(student);
+                } else {
+                    alert("No member found matching ID / Barcode: " + code);
+                }
+            }
+
+            function displayMemberCard(student) {
+                document.getElementById('memberResultCard').classList.remove('hidden');
+                document.getElementById('memberName').textContent = student.name;
+                document.getElementById('memberBarcode').textContent = "ID / Barcode: " + (student.barcode || 'Unlinked');
+                document.getElementById('memberBalance').textContent = "£" + student.balance.toFixed(2);
+                
+                var badge = document.getElementById('cardStatusBadge');
+                if (student.checkedIn) {
+                    badge.textContent = "Checked In";
+                    badge.className = "inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30";
+                } else {
+                    badge.textContent = "Not Checked In";
+                    badge.className = "inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/30";
+                }
+            }
+
+            // Quick Adjust Credit (£) Logic
+            function quickAdjustCredit(amount) {
+                if (!activeMemberId) return;
+                var student = members.find(function(m) { return m.id === activeMemberId; });
+                if (!student) return;
+
+                student.balance += amount;
+                var desc = amount > 0 ? "Credit Added (+£" + amount.toFixed(2) + ")" : "Credit Deducted (-£" + Math.abs(amount).toFixed(2) + ")";
+                
+                student.ledger.unshift({
+                    ts: new Date().toLocaleString(),
+                    desc: desc,
+                    change: amount
+                });
+
+                addLogEntry(student.name, "Balance Change", desc + " | New Balance: £" + student.balance.toFixed(2));
+
+                saveData();
+                displayMemberCard(student);
+                renderDirectory();
+            }
+
+            document.getElementById('btnSub5').addEventListener('click', function() { quickAdjustCredit(-5.00); });
+            document.getElementById('btnSub1').addEventListener('click', function() { quickAdjustCredit(-1.00); });
+            document.getElementById('btnAdd1').addEventListener('click', function() { quickAdjustCredit(1.00); });
+            document.getElementById('btnAdd5').addEventListener('click', function() { quickAdjustCredit(5.00); });
+
+            // Toggle Check-In / Attendance
+            document.getElementById('btnToggleAttendance').addEventListener('click', function() {
+                if (!activeMemberId) return;
+                var student = members.find(function(m) { return m.id === activeMemberId; });
+                if (!student) return;
+
+                student.checkedIn = !student.checkedIn;
+                var actionStr = student.checkedIn ? "Checked In" : "Checked Out";
+
+                addLogEntry(student.name, actionStr, "Current Balance: £" + student.balance.toFixed(2));
+
+                saveData();
+                displayMemberCard(student);
+                renderDirectory();
+            });
+
+            // Member Roster Directory Renderer
+            function renderDirectory() {
+                var list = document.getElementById('directoryList');
+                var search = (document.getElementById('directorySearch').value || "").toLowerCase();
+                list.innerHTML = "";
+
+                var filtered = members.filter(function(m) { 
+                    return m.name.toLowerCase().indexOf(search) !== -1 || (m.barcode && m.barcode.indexOf(search) !== -1); 
+                });
+
+                document.getElementById('totalMemberCount').textContent = members.length + " Total";
+
+                filtered.forEach(function(m) {
+                    var card = document.createElement('div');
+                    card.className = "bg-slate-800 border border-slate-700 rounded-xl p-3 flex justify-between items-center text-xs";
+                    card.innerHTML = 
+                        '<div>' +
+                            '<div class="flex items-center gap-2">' +
+                                '<span class="font-bold text-white">' + m.name + '</span>' +
+                                (!m.barcode ? '<span class="text-[9px] px-1.5 py-0.2 bg-amber-500/20 text-amber-300 rounded border border-amber-500/30">Pending ID</span>' : '') +
+                            '</div>' +
+                            '<p class="text-[10px] text-slate-400 font-mono">ID: ' + (m.barcode || 'Unlinked') + '</p>' +
+                        '</div>' +
+                        '<div class="flex items-center gap-2">' +
+                            '<span class="font-bold text-emerald-400 text-sm">£' + m.balance.toFixed(2) + '</span>' +
+                            '<button data-id="' + m.id + '" class="btn-link-card px-2 py-1 bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 rounded border border-indigo-500/30 cursor-pointer">Edit ID</button>' +
+                            '<button data-id="' + m.id + '" class="btn-select-member px-2 py-1 bg-slate-700 hover:bg-slate-600 rounded text-slate-200 cursor-pointer">Select</button>' +
+                        '</div>';
+                    list.appendChild(card);
+                });
+
+                document.querySelectorAll('.btn-select-member').forEach(function(btn) {
+                    btn.addEventListener('click', function() {
+                        var id = this.getAttribute('data-id');
+                        activeMemberId = id;
+                        var student = members.find(function(m) { return m.id === id; });
+                        if (student) {
+                            switchTab('scan');
+                            displayMemberCard(student);
+                        }
+                    });
+                });
+
+                document.querySelectorAll('.btn-link-card').forEach(function(btn) {
+                    btn.addEventListener('click', function() {
+                        var id = this.getAttribute('data-id');
+                        var student = members.find(function(m) { return m.id === id; });
+                        if (student) {
+                            var newBarcode = prompt("Assign Barcode ID for " + student.name + ":", student.barcode || "");
+                            if (newBarcode !== null) {
+                                student.barcode = newBarcode.trim() || null;
+                                addLogEntry(student.name, "ID Updated", "New Barcode: " + (student.barcode || 'Unlinked'));
+                                saveData();
+                                renderDirectory();
+                            }
+                        }
+                    });
+                });
+            }
+
+            document.getElementById('directorySearch').addEventListener('input', renderDirectory);
+
+            // Register New Member Profile
+            document.getElementById('btnSaveMember').addEventListener('click', function() {
+                var name = document.getElementById('regName').value.trim();
+                var barcode = document.getElementById('regBarcode').value.trim();
+                var balance = parseFloat(document.getElementById('regBalance').value) || 0;
+
+                if (!name) {
+                    alert("Please enter a member name.");
+                    return;
+                }
+
+                var newMem = {
+                    id: "S" + Math.floor(1000 + Math.random() * 9000),
+                    name: name,
+                    barcode: barcode || null,
+                    balance: balance,
+                    checkedIn: false,
+                    ledger: [{ ts: new Date().toLocaleString(), desc: "Registration", change: balance }]
+                };
+
+                members.push(newMem);
+                addLogEntry(name, "Member Registered", "Initial Balance: £" + balance.toFixed(2));
+
+                saveData();
+                renderDirectory();
+
+                document.getElementById('regName').value = "";
+                document.getElementById('regBarcode').value = "";
+                document.getElementById('regBalance').value = "";
+                alert("Member registered successfully!");
+            });
+
+            // CSV Roster File Import
+            document.getElementById('inputCsvFile').addEventListener('change', function(e) {
+                var file = e.target.files[0];
+                if (!file) return;
+
+                var reader = new FileReader();
+                reader.onload = function(evt) {
+                    var text = evt.target.result;
+                    var lines = text.split('\n');
+                    var count = 0;
+
+                    lines.forEach(function(line, idx) {
+                        if (idx === 0) return;
+                        var parts = line.split(',');
+                        if (parts.length >= 1) {
+                            var name = parts[0] ? parts[0].replace(/"/g, '').trim() : '';
+                            var balance = parseFloat(parts[1]) || 0;
+                            var barcode = parts[2] ? parts[2].replace(/"/g, '').trim() : null;
+
+                            if (name) {
+                                members.push({
+                                    id: "S" + Math.floor(1000 + Math.random() * 9000),
+                                    name: name,
+                                    barcode: barcode,
+                                    balance: balance,
+                                    checkedIn: false,
+                                    ledger: [{ ts: new Date().toLocaleString(), desc: "CSV Import", change: balance }]
+                                });
+                                count++;
+                            }
+                        }
+                    });
+
+                    addLogEntry("System", "CSV Import", "Imported " + count + " member records.");
+                    saveData();
+                    renderDirectory();
+                    var summary = document.getElementById('importSummary');
+                    summary.classList.remove('hidden');
+                    summary.innerHTML = '<p class="text-emerald-400 font-bold"><i class="fa-solid fa-check"></i> Imported ' + count + ' members successfully!</p>';
+                };
+                reader.readAsText(file);
+            });
+
+            // Ledger History Modal
+            document.getElementById('btnOpenLedger').addEventListener('click', function() {
+                if (!activeMemberId) return;
+                var student = members.find(function(m) { return m.id === activeMemberId; });
+                if (!student) return;
+
+                document.getElementById('ledgerModalName').textContent = student.name;
+                document.getElementById('ledgerModalSubtitle').textContent = "Barcode ID: " + (student.barcode || 'Unlinked');
+                
+                var entries = document.getElementById('ledgerEntries');
+                entries.innerHTML = "";
+
+                student.ledger.forEach(function(entry) {
+                    var item = document.createElement('div');
+                    item.className = "bg-slate-900 border border-slate-700 p-2 rounded flex justify-between items-center text-xs";
+                    item.innerHTML = 
+                        '<div>' +
+                            '<p class="font-semibold text-white">' + entry.desc + '</p>' +
+                            '<p class="text-[10px] text-slate-500">' + entry.ts + '</p>' +
+                        '</div>' +
+                        '<span class="font-bold ' + (entry.change >= 0 ? 'text-emerald-400' : 'text-rose-400') + '">' +
+                            (entry.change >= 0 ? '+' : '') + '£' + entry.change.toFixed(2) +
+                        '</span>';
+                    entries.appendChild(item);
+                });
+
+                document.getElementById('ledgerModal').classList.remove('hidden');
+            });
+
+            document.getElementById('btnCloseLedger').addEventListener('click', function() {
+                document.getElementById('ledgerModal').classList.add('hidden');
+            });
+
+            // Render Activity Logs
+            function renderLogs() {
+                var container = document.getElementById('logsList');
+                container.innerHTML = "";
+
+                logs.forEach(function(log) {
+                    var item = document.createElement('div');
+                    item.className = "bg-slate-900/80 border border-slate-700/60 p-2.5 rounded-lg flex justify-between items-center";
+                    
+                    var badgeStyle = "bg-indigo-500/20 text-indigo-300";
+                    if (log.action === "Checked In") badgeStyle = "bg-emerald-500/20 text-emerald-300";
+                    if (log.action === "Checked Out") badgeStyle = "bg-rose-500/20 text-rose-300";
+                    if (log.action === "Balance Change") badgeStyle = "bg-amber-500/20 text-amber-300";
+
+                    item.innerHTML = 
+                        '<div>' +
+                            '<p class="font-bold text-white">' + log.name + '</p>' +
+                            '<p class="text-[10px] text-slate-400">' + log.details + '</p>' +
+                            '<p class="text-[9px] text-slate-500 mt-0.5">' + log.ts + '</p>' +
+                        '</div>' +
+                        '<span class="px-2 py-0.5 rounded text-[10px] font-bold ' + badgeStyle + '">' +
+                            log.action +
+                        '</span>';
+                    container.appendChild(item);
+                });
+            }
+
+            // CSV Export
+            document.getElementById('btnExportCsv').addEventListener('click', function() {
+                var csvContent = "data:text/csv;charset=utf-8,Timestamp,Member Name,Action,Details\n";
+                logs.forEach(function(l) {
+                    csvContent += '"' + l.ts + '","' + l.name + '","' + l.action + '","' + (l.details || "") + '"\n';
+                });
+
+                var encodedUri = encodeURI(csvContent);
+                var link = document.createElement("a");
+                link.setAttribute("href", encodedUri);
+                link.setAttribute("download", "Activity_Log_Export_" + new Date().toISOString().slice(0,10) + ".csv");
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            });
+
+            // Initial view renders
+            renderDirectory();
+            renderLogs();
+        });
+    </script>
+</body>
+</html>
